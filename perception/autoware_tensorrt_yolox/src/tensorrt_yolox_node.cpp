@@ -82,8 +82,11 @@ TrtYoloXNode::TrtYoloXNode(const rclcpp::NodeOptions & node_options)
   timer_ =
     rclcpp::create_timer(this, get_clock(), 100ms, std::bind(&TrtYoloXNode::onConnect, this));
 
+  rclcpp::PublisherOptions objects_options;
+  objects_options.qos_overriding_options =
+    rclcpp::QosOverridingOptions::with_default_policies();
   objects_pub_ = this->create_publisher<tier4_perception_msgs::msg::DetectedObjectsWithFeature>(
-    "~/out/objects", 1);
+    "~/out/objects", rclcpp::QoS(10), objects_options);
   mask_pub_ = image_transport::create_publisher(this, "~/out/mask");
   color_mask_pub_ = image_transport::create_publisher(this, "~/out/color_mask");
   image_pub_ = image_transport::create_publisher(this, "~/out/image");
