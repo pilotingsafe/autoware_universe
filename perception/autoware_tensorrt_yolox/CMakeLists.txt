@@ -170,6 +170,18 @@ rclcpp_components_register_node(${PROJECT_NAME}_node
   EXECUTABLE ${PROJECT_NAME}_node_exe
 )
 
+if(DEFINED ENV{AGX_PUBLISH_METRICS_INCLUDE})
+  set(_agx_metrics_inc "$ENV{AGX_PUBLISH_METRICS_INCLUDE}")
+  target_include_directories(${PROJECT_NAME}_node PRIVATE "${_agx_metrics_inc}")
+  target_compile_definitions(${PROJECT_NAME}_node PRIVATE AGX_PUBLISH_METRICS)
+  get_filename_component(_agx_metrics_src "${_agx_metrics_inc}/../src/csv_writer.cpp" ABSOLUTE)
+  if(EXISTS "${_agx_metrics_src}")
+    target_sources(${PROJECT_NAME}_node PRIVATE "${_agx_metrics_src}")
+  endif()
+  find_package(Threads REQUIRED)
+  target_link_libraries(${PROJECT_NAME}_node Threads::Threads)
+endif()
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()

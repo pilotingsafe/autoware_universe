@@ -16,6 +16,11 @@
 
 #include <memory>
 #include <string>
+#include <utility>
+
+#ifdef AGX_PUBLISH_METRICS
+#include "agx_publish_metrics/csv_writer.hpp"
+#endif
 
 // cspell: ignore semseg
 
@@ -120,6 +125,21 @@ void TrtYoloXNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr msg)
   const auto result = detector_->detect(*msg);
   if (!result) {
     RCLCPP_ERROR(this->get_logger(), "detection failed: %s", result.error().c_str());
+#ifdef AGX_PUBLISH_METRICS
+    {
+      agx_publish_metrics::Record rec;
+      rec.role = agx_publish_metrics::roleFromNamespace(get_namespace());
+      rec.event = "detect_error";
+      rec.input_stamp_ns = agx_publish_metrics::stampToNs(
+        msg->header.stamp.sec, msg->header.stamp.nanosec);
+      rec.frame_id = msg->header.frame_id;
+      rec.publish_time_ns = get_clock()->now().nanoseconds();
+      rec.success = 0;
+      rec.object_count = 0;
+      rec.error_code = result.error();
+      agx_publish_metrics::CsvWriter::instance().record(std::move(rec));
+    }
+#endif
     return;
   }
 
@@ -127,8 +147,36 @@ void TrtYoloXNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr msg)
     mask_pub_.publish(*result->mask);
   }
 
+#ifdef AGX_PUBLISH_METRICS
+  {
+    agx_publish_metrics::Record rec;
+    rec.role = agx_publish_metrics::roleFromNamespace(get_namespace());
+    rec.event = "debug";
+    rec.input_stamp_ns = agx_publish_metrics::stampToNs(
+      result->image.header.stamp.sec, result->image.header.stamp.nanosec);
+    rec.frame_id = result->image.header.frame_id;
+    rec.publish_time_ns = get_clock()->now().nanoseconds();
+    rec.success = 1;
+    rec.object_count = 0;
+    agx_publish_metrics::CsvWriter::instance().record(std::move(rec));
+  }
+#endif
   image_pub_.publish(result->image);
 
+#ifdef AGX_PUBLISH_METRICS
+  {
+    agx_publish_metrics::Record rec;
+    rec.role = agx_publish_metrics::roleFromNamespace(get_namespace());
+    rec.event = "objects";
+    rec.input_stamp_ns = agx_publish_metrics::stampToNs(
+      result->objects.header.stamp.sec, result->objects.header.stamp.nanosec);
+    rec.frame_id = result->objects.header.frame_id;
+    rec.publish_time_ns = get_clock()->now().nanoseconds();
+    rec.success = 1;
+    rec.object_count = static_cast<int>(result->objects.feature_objects.size());
+    agx_publish_metrics::CsvWriter::instance().record(std::move(rec));
+  }
+#endif
   objects_pub_->publish(result->objects);
 
   if (debug_publisher_) {
